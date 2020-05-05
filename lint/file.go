@@ -135,7 +135,7 @@ type enableDisableConfig struct {
 	position int
 }
 
-const directiveRE = `^//[\s]*revive:(enable|disable)(?:-(line|next-line))?(?::([^\s]+))?[\s]*(?: (.+))?$`
+const directiveRE = `^//[\s]*gusano:(enable|disable)(?:-(line|next-line))?(?::([^\s]+))?[\s]*(?: (.+))?$`
 const directivePos = 1
 const modifierPos = 2
 const rulesPos = 3

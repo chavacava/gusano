@@ -125,7 +125,7 @@ func getFormatter() lint.Formatter {
 func buildDefaultConfigPath() string {
 	var result string
 	if homeDir, err := homedir.Dir(); err == nil {
-		result = filepath.Join(homeDir, "revive.toml")
+		result = filepath.Join(homeDir, "gusano.toml")
 		if _, err := os.Stat(result); err != nil {
 			result = ""
 		}
@@ -196,9 +196,9 @@ func init() {
 	}
 	// command line help strings
 	const (
-		configUsage    = "path to the configuration TOML file, defaults to $HOME/revive.toml, if present (i.e. -config myconf.toml)"
-		excludeUsage   = "list of globs which specify files to be excluded (i.e. -exclude foo/...)"
-		formatterUsage = "formatter to be used for the output (i.e. -formatter stylish)"
+		configUsage    = "path to the configuration TOML file, defaults to $HOME/gusano.toml, if present (e.g. -config myconf.toml)"
+		excludeUsage   = "list of globs which specify files to be excluded (e.g. -exclude foo/...)"
+		formatterUsage = "formatter to be used for the output (e.g. -formatter stylish)"
 	)
 
 	defaultConfigPath := buildDefaultConfigPath()

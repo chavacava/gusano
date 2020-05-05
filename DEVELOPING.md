@@ -1,6 +1,6 @@
 # Developer's Guide
 
-This document explains how to build, test, and develop features for revive.
+This document explains how to build, test, and develop features for `gusano`.
 
 ## Installation
 
@@ -25,7 +25,7 @@ In order to build the project run:
 make build
 ```
 
-The command will produce the `revive` binary in the root of the project.
+The command will produce the `gusano` binary in the root of the project.
 
 ## Development of rules
 
@@ -33,6 +33,7 @@ If you want to develop a new rule, follow as an example the already existing rul
 
 All rules should implement the following interface:
 
+// TODO document actual Rule interface
 ```go
 type Rule interface {
 	Name() string

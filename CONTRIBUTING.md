@@ -1,8 +1,8 @@
-# Contributing to revive
+# Contributing to `gusano`
 
 Please contribute to this repository if any of the following is true:
 
-* You are interested in improving the revive source or docs.
+* You are interested in improving the `gusano` source or docs.
 * You have expertise in community development, communication, or education.
 * You want open source communities to be more collaborative and inclusive.
 * You want to help lower the burden to first time contributors.

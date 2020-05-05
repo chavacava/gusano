@@ -50,7 +50,7 @@ func (f *Checkstyle) Format(failures <-chan lint.Failure, config lint.Config) (s
 		issues[fn] = append(issues[fn], iss)
 	}
 
-	t, err := plainTemplate.New("revive").Parse(checkstyleTemplate)
+	t, err := plainTemplate.New("gusano").Parse(checkstyleTemplate)
 	if err != nil {
 		return "", err
 	}

@@ -18,6 +18,8 @@ var call = color.MagentaString("gusano -config c.toml -formatter friendly -exclu
 var banner = fmt.Sprintf(`
 %s
 
+Package-wide static analysis of GO code
+
 Example:
   %s
 `, logo, call)
@@ -27,13 +29,13 @@ func main() {
 	formatter := getFormatter()
 	packages := getPackages()
 
-	revive := lint.New(func(file string) ([]byte, error) {
+	gusano := lint.New(func(file string) ([]byte, error) {
 		return ioutil.ReadFile(file)
 	})
 
 	lintingRules := getLintingRules(config)
 
-	failures, err := revive.Lint(packages, lintingRules, *config)
+	failures, err := gusano.Lint(packages, lintingRules, *config)
 	if err != nil {
 		fail(err.Error())
 	}
