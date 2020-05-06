@@ -8,28 +8,36 @@ import (
 	"github.com/chavacava/gusano/lint"
 )
 
+type toIgnoreType map[*lint.Package]map[*ast.Ident]bool
+
 // UnusedSymbolRule lints unused params in functions.
 type UnusedSymbolRule struct {
 	sync.Mutex
-	toIgnore map[*ast.Ident]bool
+	toIgnore toIgnoreType
 }
 
-func (r *UnusedSymbolRule) createToIgnore() {
-	if r.toIgnore != nil {
-		return
+func (r *UnusedSymbolRule) createToIgnore(pkg *lint.Package) {
+	if r.toIgnore == nil {
+		r.toIgnore = toIgnoreType{}
 	}
-	r.toIgnore = map[*ast.Ident]bool{}
+	if r.toIgnore[pkg] == nil {
+		r.toIgnore[pkg] = map[*ast.Ident]bool{}
+	}
+
+	return
 }
 
-func (r *UnusedSymbolRule) ignore(idNode *ast.Ident) {
+func (r *UnusedSymbolRule) ignore(pkg *lint.Package, id *ast.Ident) {
 	r.Lock()
 	defer r.Unlock()
-	_, ok := r.toIgnore[idNode]
+
+	r.createToIgnore(pkg)
+	_, ok := r.toIgnore[pkg][id]
 	if ok {
-		panic("symbol defined twice " + idNode.Name)
+		panic("symbol defined twice " + id.Name)
 	}
-	r.createToIgnore()
-	r.toIgnore[idNode] = true
+
+	r.toIgnore[pkg][id] = true
 }
 
 // ApplyToPackage applies the rule to given package.
@@ -38,7 +46,7 @@ func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Argu
 	defer r.Unlock()
 	for id, d := range pkg.TypesInfo.Defs {
 		isInitFunc := id.String() == "init" // TODO provide more precise init func identification
-		mustIgnore := d == nil || isInitFunc || id.IsExported() || id.String() == "_" || r.toIgnore[id]
+		mustIgnore := d == nil || isInitFunc || id.IsExported() || id.String() == "_" || r.toIgnore[pkg][id]
 		if mustIgnore {
 			continue
 		}
@@ -67,6 +75,8 @@ func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Argu
 			}
 		}
 	}
+
+	delete(r.toIgnore, pkg)
 }
 func (r *UnusedSymbolRule) retrieveIdKind(t interface{}, defaultValue string) string {
 	if defaultValue == "" {
@@ -89,7 +99,7 @@ func (r *UnusedSymbolRule) retrieveIdKind(t interface{}, defaultValue string) st
 
 // ApplyToFile applies the rule to given file.
 func (r *UnusedSymbolRule) ApplyToFile(file *lint.File, arguments lint.Arguments) []lint.Failure {
-	ss := &symbolScanner{r}
+	ss := &symbolScanner{r, file.Pkg}
 	ast.Walk(ss, file.AST)
 
 	return nil
@@ -101,11 +111,12 @@ func (r *UnusedSymbolRule) Name() string {
 }
 
 type symbolScanner struct {
-	r *UnusedSymbolRule
+	r   *UnusedSymbolRule
+	pkg *lint.Package
 }
 
 func (s symbolScanner) ignoreAllIdUnder(node ast.Node) {
-	ignorer := &ignorer{s.r}
+	ignorer := &ignorer{&s}
 	ast.Walk(ignorer, node)
 }
 
@@ -152,13 +163,13 @@ func (w symbolScanner) ignoreFuncType(ft *ast.FuncType) {
 }
 
 type ignorer struct {
-	r *UnusedSymbolRule
+	ss *symbolScanner
 }
 
 func (w ignorer) Visit(node ast.Node) ast.Visitor {
 	switch v := node.(type) {
 	case *ast.Ident:
-		w.r.ignore(v)
+		w.ss.r.ignore(w.ss.pkg, v)
 	}
 
 	return w
