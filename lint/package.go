@@ -180,29 +180,12 @@ func (p *Package) lint(rules []Rule, config Config, failures chan Failure) {
 		return
 	}
 
-	//var wg sync.WaitGroup
 	rulesConfig := config.Rules
-	unfilteredFailures := failures // make(chan Failure)
-	/*go func() {
-		for {
-			failure := <-unfilteredFailures
-			if failure.Failure == "from applyToFile" {
-				continue
-			} // filter
-			failures <- failure
-		}
-	}()
-	*/
 	for _, currentRule := range rules {
 		ruleConfig := rulesConfig[currentRule.Name()]
 		for _, file := range p.files {
-			//wg.Add(1)
-			//go (func(file *File) {
-			file.lint(currentRule, ruleConfig, unfilteredFailures)
-			//wg.Done()
-			//})(file)
+			file.lint(currentRule, ruleConfig, failures)
 		}
-		//wg.Wait()
-		currentRule.ApplyToPackage(p, ruleConfig.Arguments, unfilteredFailures)
+		currentRule.ApplyToPackage(p, ruleConfig.Arguments, failures)
 	}
 }
