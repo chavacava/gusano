@@ -63,7 +63,6 @@ func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Argu
 			kind := "method"
 
 			if id.Obj != nil {
-				//fmt.Printf("%v\n%v\n---\n", id.Obj.Decl, id.Obj.Kind.String())
 				kind = r.retrieveIdKind(id.Obj.Decl, id.Obj.Kind.String())
 			}
 
