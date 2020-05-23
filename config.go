@@ -164,8 +164,6 @@ func getPackages() []*packages.Package {
 		globs = append(globs, ".")
 	}
 
-	fmt.Printf("%+v\n", globs)
-
 	cfg := &gopack.Config{Mode: gopack.LoadSyntax}
 	packages, err := gopack.Load(cfg, globs...)
 	if err != nil {
@@ -193,7 +191,6 @@ func (i *arrayFlags) Set(value string) error {
 var configPath string
 var excludePaths arrayFlags
 var formatterName string
-var help bool
 
 var originalUsage = flag.Usage
 
