@@ -45,18 +45,14 @@ func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Argu
 	r.Lock()
 	defer r.Unlock()
 
-	//	fmt.Printf("\napply to pkg:\n\t%+v\n", pkg.Name)
-	//fmt.Printf("\ndefs:\n\t%+v\n", pkg.TypesInfo.Defs)
 	if pkg.TypesInfo == nil {
-		//		fmt.Println("skipping")
 		return
 	}
 
-	//fmt.Printf("\ndefs\n\t%+v\n", pkg.TypesInfo.Defs)
 	for id, d := range pkg.TypesInfo.Defs {
-		//		fmt.Printf("\n\tID: %+v", id.Obj.Pos)
 		isInitFunc := id.String() == "init" // TODO provide more precise init func identification
-		mustIgnore := d == nil || isInitFunc || id.IsExported() || id.String() == "_" || r.toIgnore[pkg][id]
+		isMainFunc := id.String() == "main" && pkg.IsMain()
+		mustIgnore := d == nil || isInitFunc || isMainFunc || id.IsExported() || id.String() == "_" || r.toIgnore[pkg][id]
 		if mustIgnore {
 			continue
 		}
