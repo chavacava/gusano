@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mgechev/dots"
 	"github.com/mitchellh/go-homedir"
 
 	"github.com/chavacava/gusano/formatter"
@@ -16,6 +15,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/chavacava/gusano/lint"
 	"github.com/chavacava/gusano/rule"
+	"golang.org/x/tools/go/packages"
+	gopack "golang.org/x/tools/go/packages"
 )
 
 func fail(err string) {
@@ -157,15 +158,22 @@ func normalizeSplit(strs []string) []string {
 	return res
 }
 
-func getPackages() [][]string {
+func getPackages() []*packages.Package {
 	globs := normalizeSplit(flag.Args())
 	if len(globs) == 0 {
 		globs = append(globs, ".")
 	}
 
-	packages, err := dots.ResolvePackages(globs, normalizeSplit(excludePaths))
+	fmt.Printf("%+v\n", globs)
+
+	cfg := &gopack.Config{Mode: gopack.LoadSyntax}
+	packages, err := gopack.Load(cfg, globs...)
 	if err != nil {
-		fail(err.Error())
+		fmt.Fprintf(os.Stderr, "load: %v\n", err)
+		os.Exit(1)
+	}
+	if gopack.PrintErrors(packages) > 0 {
+		os.Exit(1)
 	}
 
 	return packages

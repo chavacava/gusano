@@ -5,16 +5,17 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"os"
 	"sync"
 
-	"golang.org/x/tools/go/gcexportdata"
+	gopack "golang.org/x/tools/go/packages"
 )
 
 // Package represents a package in the project.
 type Package struct {
-	fset  *token.FileSet
-	files map[string]*File
-
+	fset      *token.FileSet
+	files     map[string]*File
+	Name      string
 	TypesPkg  *types.Package
 	TypesInfo *types.Info
 
@@ -29,14 +30,15 @@ func (p *Package) Fset() *token.FileSet {
 	return p.fset
 }
 
+/*
 var newImporter = func(fset *token.FileSet) types.ImporterFrom {
 	return gcexportdata.NewImporter(fset, make(map[string]*types.Package))
 }
-
+*/
 var (
 	trueValue  = 1
 	falseValue = 2
-	notSet     = 3
+	// notSet     = 3
 )
 
 // IsMain returns if that's the main package.
@@ -65,36 +67,57 @@ func (p *Package) TypeCheck() error {
 		p.mu.Unlock()
 		return nil
 	}
-	config := &types.Config{
-		// By setting a no-op error reporter, the type checker does as much work as possible.
-		Error:    func(error) {},
-		Importer: newImporter(p.fset),
+	cfg := &gopack.Config{Mode: gopack.LoadSyntax}
+	packages, err := gopack.Load(cfg, p.Name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load: %v\n", err)
+		os.Exit(1)
 	}
-	info := &types.Info{
-		Types:  make(map[ast.Expr]types.TypeAndValue),
-		Defs:   make(map[*ast.Ident]types.Object),
-		Uses:   make(map[*ast.Ident]types.Object),
-		Scopes: make(map[ast.Node]*types.Scope),
-	}
-	var anyFile *File
-	var astFiles []*ast.File
-	for _, f := range p.files {
-		anyFile = f
-		astFiles = append(astFiles, f.AST)
+	if gopack.PrintErrors(packages) > 0 {
+		os.Exit(1)
 	}
 
-	typesPkg, err := check(config, anyFile.AST.Name.Name, p.fset, astFiles, info)
+	if len(packages) < 1 {
+		return nil
+	}
 
-	// Remember the typechecking info, even if config.Check failed,
-	// since we will get partial information.
-	p.TypesPkg = typesPkg
-	p.TypesInfo = info
+	p.TypesInfo = packages[0].TypesInfo
+	p.TypesPkg = packages[0].Types
+	/*
+		config := &types.Config{
+			// By setting a no-op error reporter, the type checker does as much work as possible.
+			Error: func(err error) {
+				fmt.Printf("\n type check error:%v\n", err)
+				panic(err.Error())
+			},
+			Importer: newImporter(p.fset),
+		}
+		info := &types.Info{
+			Types:  make(map[ast.Expr]types.TypeAndValue),
+			Defs:   make(map[*ast.Ident]types.Object),
+			Uses:   make(map[*ast.Ident]types.Object),
+			Scopes: make(map[ast.Node]*types.Scope),
+		}
+		var anyFile *File
+		var astFiles []*ast.File
+		for _, f := range p.files {
+			anyFile = f
+			astFiles = append(astFiles, f.AST)
+		}
+
+		typesPkg, err := check(config, anyFile.AST.Name.Name, p.fset, astFiles, info)
+
+		// Remember the typechecking info, even if config.Check failed,
+		// since we will get partial information.
+		p.TypesPkg = typesPkg
+		p.TypesInfo = info*/
 	p.mu.Unlock()
 	return err
 }
 
 // check function encapsulates the call to go/types.Config.Check method and
 // recovers if the called method panics (see issue #59)
+/*
 func check(config *types.Config, n string, fset *token.FileSet, astFiles []*ast.File, info *types.Info) (p *types.Package, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -106,7 +129,7 @@ func check(config *types.Config, n string, fset *token.FileSet, astFiles []*ast.
 
 	return config.Check(n, fset, astFiles, info)
 }
-
+*/
 // TypeOf returns the type of an expression.
 func (p *Package) TypeOf(expr ast.Expr) types.Type {
 	if p.TypesInfo == nil {
@@ -184,7 +207,10 @@ func (p *Package) lint(rules []Rule, config Config, failures chan Failure) {
 	for _, currentRule := range rules {
 		ruleConfig := rulesConfig[currentRule.Name()]
 		for _, file := range p.files {
-			file.lint(currentRule, ruleConfig, failures)
+			currentFailures := currentRule.ApplyToFile(file, ruleConfig.Arguments) //TODO change signature to accept the failures channel
+			for _, failure := range currentFailures {
+				failures <- failure
+			}
 		}
 		currentRule.ApplyToPackage(p, ruleConfig.Arguments, failures)
 	}

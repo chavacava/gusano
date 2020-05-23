@@ -3,12 +3,9 @@ package lint
 import (
 	"bytes"
 	"go/ast"
-	"go/parser"
 	"go/printer"
 	"go/token"
 	"go/types"
-	"math"
-	"regexp"
 	"strings"
 )
 
@@ -29,16 +26,15 @@ func (f *File) Content() []byte {
 }
 
 // NewFile creates a new file
-func NewFile(name string, content []byte, pkg *Package) (*File, error) {
-	f, err := parser.ParseFile(pkg.fset, name, content, parser.ParseComments)
+func NewFile(name string, pkg *Package, ast *ast.File) (*File, error) {
+	/*f, err := parser.ParseFile(pkg.fset, name, content, parser.ParseComments)
 	if err != nil {
 		return nil, err
-	}
+	}*/
 	return &File{
-		Name:    name,
-		content: content,
-		Pkg:     pkg,
-		AST:     f,
+		Name: name,
+		Pkg:  pkg,
+		AST:  ast,
 	}, nil
 }
 
@@ -95,190 +91,4 @@ func (f *File) isMain() bool {
 		return true
 	}
 	return false
-}
-
-const directiveSpecifyDisableReason = "specify-disable-reason"
-
-func (f *File) lint(rule Rule, ruleConfig RuleConfig, failures chan Failure) {
-	currentFailures := rule.ApplyToFile(f, ruleConfig.Arguments) //TODO change signature to accept the failures channel
-	for _, failure := range currentFailures {
-		failures <- failure
-	}
-	/*
-		rulesConfig := config.Rules
-		_, mustSpecifyDisableReason := config.Directives[directiveSpecifyDisableReason]
-		disabledIntervals := f.disabledIntervals(rules, mustSpecifyDisableReason, failures)
-		for _, currentRule := range rules {
-			ruleConfig := rulesConfig[currentRule.Name()]
-			currentFailures := currentRule.Apply(f, ruleConfig.Arguments)
-			for idx, failure := range currentFailures {
-				if failure.RuleName == "" {
-					failure.RuleName = currentRule.Name()
-				}
-				if failure.Node != nil {
-					failure.Position = ToFailurePosition(failure.Node.Pos(), failure.Node.End(), f)
-				}
-				currentFailures[idx] = failure
-			}
-			currentFailures = f.filterFailures(currentFailures, disabledIntervals)
-			for _, failure := range currentFailures {
-				if failure.Confidence >= config.Confidence {
-					failures <- failure
-				}
-			}
-		}
-	*/
-}
-
-type enableDisableConfig struct {
-	enabled  bool
-	position int
-}
-
-const directiveRE = `^//[\s]*gusano:(enable|disable)(?:-(line|next-line))?(?::([^\s]+))?[\s]*(?: (.+))?$`
-const directivePos = 1
-const modifierPos = 2
-const rulesPos = 3
-const reasonPos = 4
-
-var re = regexp.MustCompile(directiveRE)
-
-func (f *File) disabledIntervals(rules []Rule, mustSpecifyDisableReason bool, failures chan Failure) disabledIntervalsMap {
-	enabledDisabledRulesMap := make(map[string][]enableDisableConfig)
-
-	getEnabledDisabledIntervals := func() disabledIntervalsMap {
-		result := make(disabledIntervalsMap)
-
-		for ruleName, disabledArr := range enabledDisabledRulesMap {
-			ruleResult := []DisabledInterval{}
-			for i := 0; i < len(disabledArr); i++ {
-				interval := DisabledInterval{
-					RuleName: ruleName,
-					From: token.Position{
-						Filename: f.Name,
-						Line:     disabledArr[i].position,
-					},
-					To: token.Position{
-						Filename: f.Name,
-						Line:     math.MaxInt32,
-					},
-				}
-				if i%2 == 0 {
-					ruleResult = append(ruleResult, interval)
-				} else {
-					ruleResult[len(ruleResult)-1].To.Line = disabledArr[i].position
-				}
-			}
-			result[ruleName] = ruleResult
-		}
-
-		return result
-	}
-
-	handleConfig := func(isEnabled bool, line int, name string) {
-		existing, ok := enabledDisabledRulesMap[name]
-		if !ok {
-			existing = []enableDisableConfig{}
-			enabledDisabledRulesMap[name] = existing
-		}
-		if (len(existing) > 1 && existing[len(existing)-1].enabled == isEnabled) ||
-			(len(existing) == 0 && isEnabled) {
-			return
-		}
-		existing = append(existing, enableDisableConfig{
-			enabled:  isEnabled,
-			position: line,
-		})
-		enabledDisabledRulesMap[name] = existing
-	}
-
-	handleRules := func(filename, modifier string, isEnabled bool, line int, ruleNames []string) []DisabledInterval {
-		var result []DisabledInterval
-		for _, name := range ruleNames {
-			if modifier == "line" {
-				handleConfig(isEnabled, line, name)
-				handleConfig(!isEnabled, line, name)
-			} else if modifier == "next-line" {
-				handleConfig(isEnabled, line+1, name)
-				handleConfig(!isEnabled, line+1, name)
-			} else {
-				handleConfig(isEnabled, line, name)
-			}
-		}
-		return result
-	}
-
-	handleComment := func(filename string, c *ast.CommentGroup, line int) {
-		comments := c.List
-		for _, c := range comments {
-			match := re.FindStringSubmatch(c.Text)
-			if len(match) == 0 {
-				return
-			}
-
-			ruleNames := []string{}
-			tempNames := strings.Split(match[rulesPos], ",")
-			for _, name := range tempNames {
-				name = strings.Trim(name, "\n")
-				if len(name) > 0 {
-					ruleNames = append(ruleNames, name)
-				}
-			}
-
-			mustCheckDisablingReason := mustSpecifyDisableReason && match[directivePos] == "disable"
-			if mustCheckDisablingReason && strings.Trim(match[reasonPos], " ") == "" {
-				failures <- Failure{
-					Confidence: 1,
-					RuleName:   directiveSpecifyDisableReason,
-					Failure:    "reason of lint disabling not found",
-					Position:   ToFailurePosition(c.Pos(), c.End(), f),
-					Node:       c,
-				}
-				continue // skip this linter disabling directive
-			}
-
-			// TODO: optimize
-			if len(ruleNames) == 0 {
-				for _, rule := range rules {
-					ruleNames = append(ruleNames, rule.Name())
-				}
-			}
-
-			handleRules(filename, match[modifierPos], match[directivePos] == "enable", line, ruleNames)
-		}
-	}
-
-	comments := f.AST.Comments
-	for _, c := range comments {
-		handleComment(f.Name, c, f.ToPosition(c.End()).Line)
-	}
-
-	return getEnabledDisabledIntervals()
-}
-
-func (f *File) filterFailures(failures []Failure, disabledIntervals disabledIntervalsMap) []Failure {
-	result := []Failure{}
-	for _, failure := range failures {
-		fStart := failure.Position.Start.Line
-		fEnd := failure.Position.End.Line
-		intervals, ok := disabledIntervals[failure.RuleName]
-		if !ok {
-			result = append(result, failure)
-		} else {
-			include := true
-			for _, interval := range intervals {
-				intStart := interval.From.Line
-				intEnd := interval.To.Line
-				if (fStart >= intStart && fStart <= intEnd) ||
-					(fEnd >= intStart && fEnd <= intEnd) {
-					include = false
-					break
-				}
-			}
-			if include {
-				result = append(result, failure)
-			}
-		}
-	}
-	return result
 }

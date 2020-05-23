@@ -44,7 +44,17 @@ func (r *UnusedSymbolRule) ignore(pkg *lint.Package, id *ast.Ident) {
 func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Arguments, failures chan lint.Failure) {
 	r.Lock()
 	defer r.Unlock()
+
+	//	fmt.Printf("\napply to pkg:\n\t%+v\n", pkg.Name)
+	//fmt.Printf("\ndefs:\n\t%+v\n", pkg.TypesInfo.Defs)
+	if pkg.TypesInfo == nil {
+		//		fmt.Println("skipping")
+		return
+	}
+
+	//fmt.Printf("\ndefs\n\t%+v\n", pkg.TypesInfo.Defs)
 	for id, d := range pkg.TypesInfo.Defs {
+		//		fmt.Printf("\n\tID: %+v", id.Obj.Pos)
 		isInitFunc := id.String() == "init" // TODO provide more precise init func identification
 		mustIgnore := d == nil || isInitFunc || id.IsExported() || id.String() == "_" || r.toIgnore[pkg][id]
 		if mustIgnore {
@@ -66,6 +76,7 @@ func (r *UnusedSymbolRule) ApplyToPackage(pkg *lint.Package, arguments lint.Argu
 				kind = r.retrieveIdKind(id.Obj.Decl, id.Obj.Kind.String())
 			}
 
+			//			fmt.Printf("unused %v (%+v)\n", id, id.Obj)
 			failures <- lint.Failure{
 				Confidence: 1,
 				Failure:    fmt.Sprintf("unused %v %v", kind, d.Name()),
@@ -114,11 +125,6 @@ type symbolScanner struct {
 	pkg *lint.Package
 }
 
-func (s symbolScanner) ignoreAllIdUnder(node ast.Node) {
-	ignorer := &ignorer{&s}
-	ast.Walk(ignorer, node)
-}
-
 func (w symbolScanner) Visit(node ast.Node) ast.Visitor {
 	switch v := node.(type) {
 	case *ast.Field:
@@ -148,6 +154,11 @@ func (w symbolScanner) Visit(node ast.Node) ast.Visitor {
 	return w
 }
 
+func (s symbolScanner) ignoreAllIdUnder(node ast.Node) {
+	ignorer := &ignorer{&s}
+	ast.Walk(ignorer, node)
+}
+
 func (w symbolScanner) ignoreFuncType(ft *ast.FuncType) {
 	if ft == nil {
 		return
@@ -168,6 +179,7 @@ type ignorer struct {
 func (w ignorer) Visit(node ast.Node) ast.Visitor {
 	switch v := node.(type) {
 	case *ast.Ident:
+		//		fmt.Printf("ignoring %v %+v\n", v, v.Obj)
 		w.ss.r.ignore(w.ss.pkg, v)
 	}
 

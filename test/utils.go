@@ -3,22 +3,16 @@ package test
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/printer"
 	"go/token"
 	"go/types"
-	"io/ioutil"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/chavacava/gusano/lint"
-	"github.com/pkg/errors"
 )
 
+/*
 func testRule(t *testing.T, filename string, rule lint.Rule, config ...*lint.RuleConfig) {
 	baseDir := "../testdata/"
 	filename = filename + ".go"
@@ -40,89 +34,94 @@ func testRule(t *testing.T, filename string, rule lint.Rule, config ...*lint.Rul
 	}
 	assertFailures(t, baseDir, stat, src, []lint.Rule{rule}, c)
 }
-
+*/
+/*
 func assertSuccess(t *testing.T, baseDir string, fi os.FileInfo, rules []lint.Rule, config map[string]lint.RuleConfig) error {
-	l := lint.New(func(file string) ([]byte, error) {
-		return ioutil.ReadFile(baseDir + file)
-	})
+	/*
+		l := lint.New(func(file string) ([]byte, error) {
+			return ioutil.ReadFile(baseDir + file)
+		})
 
-	ps, err := l.Lint([][]string{[]string{fi.Name()}}, rules, lint.Config{
-		Rules: config,
-	})
-	if err != nil {
-		return err
-	}
+		ps, err := l.Lint([][]string{[]string{fi.Name()}}, rules, lint.Config{
+			Rules: config,
+		})
+		if err != nil {
+			return err
+		}
 
-	failures := ""
-	for p := range ps {
-		failures += p.Failure
-	}
-	if failures != "" {
-		t.Errorf("Expected the rule to pass but got the following failures: %s", failures)
-	}
+		failures := ""
+		for p := range ps {
+			failures += p.Failure
+		}
+		if failures != "" {
+			t.Errorf("Expected the rule to pass but got the following failures: %s", failures)
+		}
+
 	return nil
 }
+*/
+//func assertFailures(t *testing.T, baseDir string, fi os.FileInfo, src []byte, rules []lint.Rule, config map[string]lint.RuleConfig) error {
+/*
+		l := lint.New(func(file string) ([]byte, error) {
+			return ioutil.ReadFile(baseDir + file)
+		})
 
-func assertFailures(t *testing.T, baseDir string, fi os.FileInfo, src []byte, rules []lint.Rule, config map[string]lint.RuleConfig) error {
-	l := lint.New(func(file string) ([]byte, error) {
-		return ioutil.ReadFile(baseDir + file)
-	})
+		ins := parseInstructions(t, fi.Name(), src)
+		if ins == nil {
+			return errors.Errorf("Test file %v does not have instructions", fi.Name())
+		}
 
-	ins := parseInstructions(t, fi.Name(), src)
-	if ins == nil {
-		return errors.Errorf("Test file %v does not have instructions", fi.Name())
-	}
+		ps, err := l.Lint([][]string{[]string{fi.Name()}}, rules, lint.Config{
+			Rules: config,
+		})
+		if err != nil {
+			return err
+		}
 
-	ps, err := l.Lint([][]string{[]string{fi.Name()}}, rules, lint.Config{
-		Rules: config,
-	})
-	if err != nil {
-		return err
-	}
+		failures := []lint.Failure{}
+		for f := range ps {
+			failures = append(failures, f)
+		}
 
-	failures := []lint.Failure{}
-	for f := range ps {
-		failures = append(failures, f)
-	}
-
-	for _, in := range ins {
-		ok := false
-		for i, p := range failures {
-			if p.Position.Start.Line != in.Line {
-				continue
-			}
-			if in.Match == p.Failure {
-				// check replacement if we are expecting one
-				if in.Replacement != "" {
-					// ignore any inline comments, since that would be recursive
-					r := p.ReplacementLine
-					if i := strings.Index(r, " //"); i >= 0 {
-						r = r[:i]
-					}
-					if r != in.Replacement {
-						t.Errorf("Lint failed at %s:%d; got replacement %q, want %q", fi.Name(), in.Line, r, in.Replacement)
-					}
+		for _, in := range ins {
+			ok := false
+			for i, p := range failures {
+				if p.Position.Start.Line != in.Line {
+					continue
 				}
+				if in.Match == p.Failure {
+					// check replacement if we are expecting one
+					if in.Replacement != "" {
+						// ignore any inline comments, since that would be recursive
+						r := p.ReplacementLine
+						if i := strings.Index(r, " //"); i >= 0 {
+							r = r[:i]
+						}
+						if r != in.Replacement {
+							t.Errorf("Lint failed at %s:%d; got replacement %q, want %q", fi.Name(), in.Line, r, in.Replacement)
+						}
+					}
 
-				// remove this problem from ps
-				copy(failures[i:], failures[i+1:])
-				failures = failures[:len(failures)-1]
+					// remove this problem from ps
+					copy(failures[i:], failures[i+1:])
+					failures = failures[:len(failures)-1]
 
-				// t.Logf("/%v/ matched at %s:%d", in.Match, fi.Name(), in.Line)
-				ok = true
-				break
+					// t.Logf("/%v/ matched at %s:%d", in.Match, fi.Name(), in.Line)
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				t.Errorf("Lint failed at %s:%d; /%v/ did not match", fi.Name(), in.Line, in.Match)
 			}
 		}
-		if !ok {
-			t.Errorf("Lint failed at %s:%d; /%v/ did not match", fi.Name(), in.Line, in.Match)
+		for _, p := range failures {
+			t.Errorf("Unexpected problem at %s:%d: %v", fi.Name(), p.Position.Start.Line, p.Failure)
 		}
-	}
-	for _, p := range failures {
-		t.Errorf("Unexpected problem at %s:%d: %v", fi.Name(), p.Position.Start.Line, p.Failure)
-	}
+
 	return nil
 }
-
+*/
 type instruction struct {
 	Line        int    // the line number this applies to
 	Match       string // what pattern to match
@@ -131,7 +130,7 @@ type instruction struct {
 
 // parseInstructions parses instructions from the comments in a Go source file.
 // It returns nil if none were parsed.
-func parseInstructions(t *testing.T, filename string, src []byte) []instruction {
+/*func parseInstructions(t *testing.T, filename string, src []byte) []instruction {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
@@ -179,7 +178,8 @@ func parseInstructions(t *testing.T, filename string, src []byte) []instruction 
 	}
 	return ins
 }
-
+*/
+/*
 func extractPattern(line string) (string, error) {
 	a, b := strings.Index(line, "/"), strings.LastIndex(line, "/")
 	if a == -1 || a == b {
@@ -187,7 +187,8 @@ func extractPattern(line string) (string, error) {
 	}
 	return line[a+1 : b], nil
 }
-
+*/
+/*
 func extractReplacement(line string) (string, bool) {
 	// Look for this:  / -> `
 	// (the end of a match and start of a backtick string),
@@ -199,7 +200,8 @@ func extractReplacement(line string) (string, bool) {
 	}
 	return line[a+len(start) : b], true
 }
-
+*/
+/*
 func render(fset *token.FileSet, x interface{}) string {
 	var buf bytes.Buffer
 	if err := printer.Fprint(&buf, fset, x); err != nil {
@@ -207,7 +209,7 @@ func render(fset *token.FileSet, x interface{}) string {
 	}
 	return buf.String()
 }
-
+*/
 func srcLine(src []byte, p token.Position) string {
 	// Run to end of line in both directions if not at line start/end.
 	lo, hi := p.Offset, p.Offset+1

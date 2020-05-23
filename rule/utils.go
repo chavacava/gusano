@@ -1,28 +1,20 @@
 package rule
 
 import (
-	"bytes"
-	"fmt"
 	"go/ast"
-	"go/printer"
-	"go/token"
-	"go/types"
 	"regexp"
-	"strings"
-
-	"github.com/chavacava/gusano/lint"
 )
 
-const styleGuideBase = "https://golang.org/wiki/CodeReviewComments"
+//const styleGuideBase = "https://golang.org/wiki/CodeReviewComments"
 
 // isBlank returns whether id is the blank identifier "_".
 // If id == nil, the answer is false.
-func isBlank(id *ast.Ident) bool { return id != nil && id.Name == "_" }
-
+//func isBlank(id *ast.Ident) bool { return id != nil && id.Name == "_" }
+/*
 func isTest(f *lint.File) bool {
 	return strings.HasSuffix(f.Name, "_test.go")
 }
-
+*/
 var commonMethods = map[string]bool{
 	"Error":     true,
 	"Read":      true,
@@ -31,6 +23,7 @@ var commonMethods = map[string]bool{
 	"Write":     true,
 }
 
+/*
 func receiverType(fn *ast.FuncDecl) string {
 	switch e := fn.Recv.List[0].Type.(type) {
 	case *ast.Ident:
@@ -43,12 +36,13 @@ func receiverType(fn *ast.FuncDecl) string {
 	// The parser accepts much more than just the legal forms.
 	return "invalid-type"
 }
-
+*/
 var knownNameExceptions = map[string]bool{
 	"LastInsertId": true, // must match database/sql
 	"kWh":          true,
 }
 
+/*
 func isCgoExported(f *ast.FuncDecl) bool {
 	if f.Recv != nil || f.Doc == nil {
 		return false
@@ -62,14 +56,15 @@ func isCgoExported(f *ast.FuncDecl) bool {
 	}
 	return false
 }
-
+*/
 var allCapsRE = regexp.MustCompile(`^[A-Z0-9_]+$`)
 
+/*
 func isIdent(expr ast.Expr, ident string) bool {
 	id, ok := expr.(*ast.Ident)
 	return ok && id.Name == ident
 }
-
+*/
 var zeroLiteral = map[string]bool{
 	"false": true, // bool
 	// runes
@@ -85,17 +80,20 @@ var zeroLiteral = map[string]bool{
 	"0i":  true,
 }
 
+/*
 func validType(T types.Type) bool {
 	return T != nil &&
 		T != types.Typ[types.Invalid] &&
 		!strings.Contains(T.String(), "invalid type") // good but not foolproof
 }
-
+*/
+/*
 func isPkgDot(expr ast.Expr, pkg, name string) bool {
 	sel, ok := expr.(*ast.SelectorExpr)
 	return ok && isIdent(sel.X, pkg) && isIdent(sel.Sel, name)
 }
-
+*/
+/*
 func srcLine(src []byte, p token.Position) string {
 	// Run to end of line in both directions if not at line start/end.
 	lo, hi := p.Offset, p.Offset+1
@@ -107,7 +105,8 @@ func srcLine(src []byte, p token.Position) string {
 	}
 	return string(src[lo:hi])
 }
-
+*/
+/*
 // pick yields a list of nodes by picking them from a sub-ast with root node n.
 // Nodes are selected by applying the fselect function
 // f function is applied to each selected node before inseting it in the final result.
@@ -130,7 +129,8 @@ func pick(n ast.Node, fselect func(n ast.Node) bool, f func(n ast.Node) []ast.No
 	ast.Walk(p, n)
 	return result
 }
-
+*/
+/*
 func pickFromExpList(l []ast.Expr, fselect func(n ast.Node) bool, f func(n ast.Node) []ast.Node) []ast.Node {
 	result := make([]ast.Node, 0)
 	for _, e := range l {
@@ -138,7 +138,7 @@ func pickFromExpList(l []ast.Expr, fselect func(n ast.Node) bool, f func(n ast.N
 	}
 	return result
 }
-
+*/
 type picker struct {
 	fselect  func(n ast.Node) bool
 	onSelect func(n ast.Node)
@@ -158,6 +158,7 @@ func (p picker) Visit(node ast.Node) ast.Visitor {
 
 // isBoolOp returns true if the given token corresponds to
 // a bool operator
+/*
 func isBoolOp(t token.Token) bool {
 	switch t {
 	case token.LAND, token.LOR, token.EQL, token.NEQ:
@@ -166,12 +167,13 @@ func isBoolOp(t token.Token) bool {
 
 	return false
 }
-
+*/
 const (
 	trueName  = "true"
 	falseName = "false"
 )
 
+/*
 func isExprABooleanLit(n ast.Node) (lexeme string, ok bool) {
 	oper, ok := n.(*ast.Ident)
 
@@ -181,7 +183,8 @@ func isExprABooleanLit(n ast.Node) (lexeme string, ok bool) {
 
 	return oper.Name, (oper.Name == trueName || oper.Name == falseName)
 }
-
+*/
+/*
 // gofmt returns a string representation of the expression.
 func gofmt(x ast.Expr) string {
 	buf := bytes.Buffer{}
@@ -189,3 +192,4 @@ func gofmt(x ast.Expr) string {
 	printer.Fprint(&buf, fs, x)
 	return buf.String()
 }
+*/
