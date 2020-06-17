@@ -1,80 +1,52 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"strings"
 
-	"github.com/chavacava/gusano/lint"
-	"github.com/fatih/color"
+	"golang.org/x/tools/go/packages"
 )
 
-var logo = color.YellowString(`  __       __   _         
- / _' / / (_ ' /_) _   _  
-(__/ (_/ .__) / / ) ) (_)`)
+type arrayFlags []string
 
-var call = color.MagentaString("gusano -config c.toml -formatter friendly -exclude a.go -exclude b.go ./...")
+func (i *arrayFlags) String() string {
+	return strings.Join([]string(*i), " ")
+}
 
-var banner = fmt.Sprintf(`
-%s
-
-Package-wide static analysis of GO code
-
-Example:
-  %s
-`, logo, call)
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
 
 func main() {
-	config := getConfig()
-	formatter := getFormatter()
-	packages := getPackages()
+	var excludePkgs arrayFlags
+	var excludeFiles arrayFlags
 
-	gusano := lint.New(func(file string) ([]byte, error) {
-		return ioutil.ReadFile(file)
-	})
+	flag.Var(&excludePkgs, "ep", "regex of packages to exclude")
+	flag.Var(&excludeFiles, "ef", "regex of files to exclude")
+	flag.Parse()
 
-	lintingRules := getLintingRules(config)
+	println(excludePkgs)
 
-	failures, err := gusano.Lint(packages, lintingRules, *config)
+	// Many tools pass their command-line arguments (after any flags)
+	// uninterpreted to packages.Load so that it can interpret them
+	// according to the conventions of the underlying build system.
+	cfg := &packages.Config{Mode: packages.LoadAllSyntax}
+	pkgs, err := packages.Load(cfg, "./...")
 	if err != nil {
-		fail(err.Error())
+		fmt.Fprintf(os.Stderr, "load: %v\n", err)
+		//os.Exit(1)
+	}
+	if packages.PrintErrors(pkgs) > 0 {
+		//os.Exit(1)
 	}
 
-	formatChan := make(chan lint.Failure)
-	exitChan := make(chan bool)
-
-	var output string
-	go (func() {
-		output, err = formatter.Format(formatChan, *config)
-		if err != nil {
-			fail(err.Error())
-		}
-		exitChan <- true
-	})()
-
-	exitCode := 0
-	for f := range failures {
-		if f.Confidence < config.Confidence {
-			continue
-		}
-		if exitCode == 0 {
-			exitCode = config.WarningCode
-		}
-		if c, ok := config.Rules[f.RuleName]; ok && c.Severity == lint.SeverityError {
-			exitCode = config.ErrorCode
-		}
-		if c, ok := config.Directives[f.RuleName]; ok && c.Severity == lint.SeverityError {
-			exitCode = config.ErrorCode
-		}
-
-		formatChan <- f
+	unused := &Unused{}
+	// Print the names of the source files
+	// for each package listed on the command line.
+	for _, pkg := range pkgs {
+		unused.Apply(pkg)
 	}
-
-	close(formatChan)
-	<-exitChan
-	if output != "" {
-		fmt.Println(output)
-	}
-
-	os.Exit(exitCode)
 }
