@@ -83,10 +83,6 @@ func (r *Unused) Apply(pkg *packages.Package) {
 	delete(r.toIgnore, pkg)
 }
 
-func (*Unused) retrieveIDKind(k ast.ObjKind) string {
-	return k.String()
-}
-
 // ApplyToFile applies the rule to given file.
 func (r *Unused) applyToFile(file *ast.File, pkg *packages.Package) {
 	ss := &symbolScanner{r, pkg}

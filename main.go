@@ -28,8 +28,6 @@ func main() {
 	flag.Var(&excludeFiles, "ef", "regex of files to exclude")
 	flag.Parse()
 
-	println(excludePkgs)
-
 	// Many tools pass their command-line arguments (after any flags)
 	// uninterpreted to packages.Load so that it can interpret them
 	// according to the conventions of the underlying build system.
